@@ -1,0 +1,33 @@
+{
+  "model": "RandomForest",
+  "features": [
+    {
+      "feature": "rainfall",
+      "importance": 0.2278
+    },
+    {
+      "feature": "humidity",
+      "importance": 0.2158
+    },
+    {
+      "feature": "K",
+      "importance": 0.1761
+    },
+    {
+      "feature": "P",
+      "importance": 0.1502
+    },
+    {
+      "feature": "N",
+      "importance": 0.1037
+    },
+    {
+      "feature": "temperature",
+      "importance": 0.0757
+    },
+    {
+      "feature": "ph",
+      "importance": 0.0506
+    }
+  ]
+}

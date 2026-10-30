@@ -1,0 +1,897 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Field Ledger — Crop Recommendation Console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+  :root{
+    --paper: #eef0e2;
+    --paper-2: #e5e8d5;
+    --paper-3: #dde1cb;
+    --ink: #202b1c;
+    --ink-soft: #55604a;
+    --soil: #4a3728;
+    --soil-deep: #33261b;
+    --moss: #3f6b4a;
+    --moss-deep: #2c4a33;
+    --moss-glow: #6f9a70;
+    --gold: #c1922f;
+    --gold-soft: #e4c789;
+    --clay: #a8492f;
+    --clay-soft: #e5b8a6;
+    --line: #c9cdb3;
+    --line-soft: #dcdfc9;
+    --shadow: 0 1px 0 rgba(32,43,28,0.06);
+    --radius: 3px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background: var(--paper);
+    background-image:
+      radial-gradient(circle at 1px 1px, rgba(32,43,28,0.05) 1px, transparent 0);
+    background-size: 22px 22px;
+    color: var(--ink);
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  h1,h2,h3,.display{
+    font-family: 'Fraunces', serif;
+    font-weight: 600;
+    color: var(--soil-deep);
+    letter-spacing: -0.01em;
+  }
+  .mono{ font-family: 'IBM Plex Mono', monospace; letter-spacing: 0.01em; }
+  a{ color: inherit; }
+  button{ font-family: inherit; }
+
+  /* ---------- Layout shell ---------- */
+  .shell{
+    display: grid;
+    grid-template-columns: 236px 1fr;
+    min-height: 100vh;
+  }
+  @media (max-width: 860px){
+    .shell{ grid-template-columns: 1fr; }
+  }
+
+  /* ---------- Sidebar ---------- */
+  .sidebar{
+    background: var(--soil-deep);
+    color: #e9e6da;
+    padding: 26px 18px 18px;
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid #241a12;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+  }
+  @media (max-width: 860px){
+    .sidebar{ position: relative; height: auto; padding: 18px; }
+  }
+  .brand{
+    display:flex; align-items:center; gap:10px;
+    margin-bottom: 6px;
+  }
+  .brand-mark{
+    width: 30px; height: 30px; flex: none;
+  }
+  .brand-name{
+    font-family:'Fraunces',serif;
+    font-weight: 700;
+    font-size: 17px;
+    color: #f4f1e6;
+    line-height: 1.15;
+  }
+  .brand-sub{
+    font-family:'IBM Plex Mono',monospace;
+    font-size: 10.5px;
+    color: #a9b39a;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    margin: 2px 0 22px 0;
+  }
+  nav{ display:flex; flex-direction:column; gap:2px; margin-top: 6px; }
+  .nav-btn{
+    display:flex; align-items:center; gap:10px;
+    background:transparent; border:none; text-align:left;
+    color:#cfd3bf; padding:9px 10px; border-radius: var(--radius);
+    cursor:pointer; font-size: 13px; font-weight: 500;
+    transition: background .12s ease, color .12s ease;
+  }
+  .nav-btn .n{ font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:#7c8a6a; width:16px; }
+  .nav-btn:hover{ background: rgba(255,255,255,0.06); color:#f4f1e6; }
+  .nav-btn.active{ background: var(--moss-deep); color:#f4f1e6; }
+  .nav-btn.active .n{ color:#bcd6bd; }
+
+  .sidebar-foot{
+    margin-top:auto; padding-top:16px; border-top: 1px solid rgba(255,255,255,0.08);
+  }
+  .conn-row{ display:flex; align-items:center; gap:8px; margin-bottom:10px; }
+  .dot{ width:8px; height:8px; border-radius:50%; background:#7a4a3a; flex:none; transition: background .2s; }
+  .dot.ok{ background:#6fae72; box-shadow: 0 0 0 3px rgba(111,174,114,0.18); }
+  .dot.bad{ background:#c1583a; box-shadow: 0 0 0 3px rgba(193,88,58,0.18); }
+  .conn-label{ font-family:'IBM Plex Mono',monospace; font-size:11px; color:#c7cbb4; }
+  .api-input{
+    width:100%; background: #221810; border:1px solid #3c2c1e; color:#e9e6da;
+    padding:7px 8px; font-family:'IBM Plex Mono',monospace; font-size:11.5px;
+    border-radius: var(--radius); margin-bottom:8px;
+  }
+  .api-input:focus{ outline:none; border-color: var(--moss-glow); }
+  .btn-ghost{
+    width:100%; background:#2c211a; border:1px solid #4a382a; color:#dcdccb;
+    padding:7px 8px; border-radius: var(--radius); font-size:11.5px; cursor:pointer;
+    font-family:'IBM Plex Mono',monospace;
+  }
+  .btn-ghost:hover{ background:#3a2c21; }
+
+  /* ---------- Main ---------- */
+  main{ padding: 30px 38px 60px; max-width: 1080px; }
+  @media (max-width: 860px){ main{ padding: 22px 18px 50px; } }
+
+  .page-head{ margin-bottom: 22px; }
+  .eyebrow{
+    font-family:'IBM Plex Mono',monospace; text-transform:uppercase; letter-spacing:0.12em;
+    font-size: 10.5px; color: var(--moss-deep); margin-bottom: 6px; display:block;
+  }
+  .page-head h1{ font-size: 28px; margin: 0 0 6px 0; }
+  .page-head p{ color: var(--ink-soft); margin:0; max-width: 60ch; font-size: 13.5px; }
+
+  .panel{
+    background: var(--paper-2);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+  }
+  .panel + .panel{ margin-top: 20px; }
+  .panel-head{
+    display:flex; align-items:baseline; justify-content:space-between;
+    padding: 14px 18px; border-bottom: 1px dashed var(--line);
+  }
+  .panel-head h3{ font-size: 15px; margin:0; }
+  .panel-head .tag{
+    font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:var(--ink-soft);
+    text-transform:uppercase; letter-spacing:0.06em;
+  }
+  .panel-body{ padding: 18px; }
+
+  .tab-section{ display:none; }
+  .tab-section.active{ display:block; }
+
+  /* ---------- Form: soil ticket ---------- */
+  .ticket{
+    display:grid; grid-template-columns: 1fr 1fr; gap: 20px;
+    align-items: start;
+  }
+  @media (max-width: 760px){ .ticket{ grid-template-columns: 1fr; } }
+
+  .field-grid{ display:grid; grid-template-columns: 1fr 1fr; gap: 12px 14px; }
+  .field{ display:flex; flex-direction:column; gap:5px; }
+  .field label{
+    font-family:'IBM Plex Mono',monospace; font-size: 10.5px; text-transform:uppercase;
+    letter-spacing:0.06em; color: var(--ink-soft);
+    display:flex; justify-content:space-between;
+  }
+  .field label .unit{ color:#8a9179; text-transform:none; letter-spacing:0; }
+  .field input[type=number]{
+    background: var(--paper); border:1px solid var(--line); border-radius: var(--radius);
+    padding: 9px 10px; font-family:'IBM Plex Mono',monospace; font-size:14px; color: var(--ink);
+  }
+  .field input[type=number]:focus{ outline:none; border-color: var(--moss); background:#fff; }
+  .field input[type=range]{ accent-color: var(--moss); }
+
+  .row-btns{ display:flex; gap:10px; margin-top:16px; flex-wrap:wrap; }
+  .btn{
+    border:none; border-radius: var(--radius); padding: 11px 18px; font-weight:600; font-size:13px;
+    cursor:pointer; display:inline-flex; align-items:center; gap:8px; transition: transform .08s ease, background .12s ease;
+  }
+  .btn:active{ transform: translateY(1px); }
+  .btn-primary{ background: var(--moss); color:#f4f1e6; }
+  .btn-primary:hover{ background: var(--moss-deep); }
+  .btn-secondary{ background: transparent; color: var(--soil-deep); border:1px solid var(--line); }
+  .btn-secondary:hover{ background: var(--paper-3); }
+  .btn:disabled{ opacity:0.55; cursor:not-allowed; }
+
+  .preset-row{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px; }
+  .chip{
+    font-family:'IBM Plex Mono',monospace; font-size:10.5px; padding:5px 10px;
+    background: var(--paper-3); border:1px solid var(--line); border-radius: 20px; cursor:pointer;
+    color: var(--ink-soft);
+  }
+  .chip:hover{ background:#fff; color:var(--soil-deep); border-color:#b9bea0; }
+
+  /* ---------- Result stub ---------- */
+  .stub{
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    position: relative;
+    padding: 20px;
+    min-height: 260px;
+  }
+  .stub::before{
+    content:"";
+    position:absolute; left:-9px; top:50%; transform:translateY(-50%);
+    width:16px; height:16px; border-radius:50%; background: var(--paper); border:1px solid var(--line);
+    display: none;
+  }
+  @media (min-width:761px){ .stub::before{ display:block; } }
+  .stub-empty{
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    height: 100%; min-height: 220px; text-align:center; color: var(--ink-soft);
+  }
+  .stub-empty svg{ opacity:0.5; margin-bottom:10px; }
+  .stub-empty .h{ font-family:'Fraunces',serif; font-size:16px; color: var(--soil); margin-bottom:4px; }
+  .stub-empty .s{ font-size:12px; max-width: 30ch; }
+
+  .dial-wrap{ display:flex; align-items:center; gap:16px; margin-bottom: 14px; }
+  .dial{ width:86px; height:86px; border-radius:50%; position:relative; flex:none; }
+  .dial-inner{
+    position:absolute; inset:8px; border-radius:50%; background: var(--paper);
+    display:flex; align-items:center; justify-content:center; flex-direction:column;
+  }
+  .dial-inner .pct{ font-family:'IBM Plex Mono',monospace; font-weight:600; font-size:16px; color: var(--moss-deep); }
+  .dial-inner .lbl{ font-size:8px; text-transform:uppercase; letter-spacing:0.05em; color:var(--ink-soft); }
+  .crop-name{ font-family:'Fraunces',serif; font-size: 24px; font-weight:700; color: var(--soil-deep); text-transform: capitalize; margin: 0 0 2px 0; }
+  .crop-model{ font-family:'IBM Plex Mono',monospace; font-size: 10.5px; color: var(--ink-soft); }
+
+  .explanation{
+    font-size: 13px; color: var(--ink); background: #fff; border:1px dashed var(--line);
+    padding: 12px 13px; border-radius: var(--radius); margin: 14px 0;
+  }
+
+  .rank-list{ display:flex; flex-direction:column; gap:8px; margin: 12px 0 4px; }
+  .rank-item{ display:flex; align-items:center; gap:10px; }
+  .rank-item .rk{ font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:var(--ink-soft); width:14px; }
+  .rank-item .nm{ font-size:12.5px; width: 100px; text-transform:capitalize; flex:none; }
+  .rank-bar-track{ flex:1; height:7px; background: var(--paper-3); border-radius:6px; overflow:hidden; }
+  .rank-bar-fill{ height:100%; background: linear-gradient(90deg, var(--moss-glow), var(--moss)); border-radius:6px; }
+  .rank-item .pv{ font-family:'IBM Plex Mono',monospace; font-size:11px; width:42px; text-align:right; color: var(--ink-soft); }
+
+  .spec-table{ width:100%; border-collapse:collapse; margin-top: 10px; font-size:12.5px; }
+  .spec-table td{ padding: 5px 0; border-bottom: 1px dashed var(--line-soft); vertical-align:top; }
+  .spec-table td:first-child{ color: var(--ink-soft); font-family:'IBM Plex Mono',monospace; font-size:10.5px; text-transform:uppercase; letter-spacing:0.04em; width: 38%; }
+
+  .error-box{
+    background:#f6e6de; border:1px solid var(--clay-soft); color: var(--clay); padding: 12px 14px;
+    border-radius: var(--radius); font-size:12.5px; margin-bottom: 14px; display:none;
+  }
+  .error-box.show{ display:block; }
+
+  /* ---------- generic table ---------- */
+  table.data{ width:100%; border-collapse:collapse; font-size: 12.5px; }
+  table.data th{
+    text-align:left; font-family:'IBM Plex Mono',monospace; font-size:10px; text-transform:uppercase;
+    letter-spacing:0.05em; color: var(--ink-soft); padding: 8px 10px; border-bottom: 1px solid var(--line);
+  }
+  table.data td{ padding: 8px 10px; border-bottom: 1px dashed var(--line-soft); }
+  table.data tr:hover td{ background: rgba(63,107,74,0.05); }
+  .best-row td{ background: rgba(193,146,47,0.10); font-weight:600; }
+  .pill{
+    display:inline-block; font-family:'IBM Plex Mono',monospace; font-size:9.5px; padding:2px 7px;
+    border-radius: 20px; background: var(--gold-soft); color:#5a4110; text-transform:uppercase; letter-spacing:0.04em;
+  }
+
+  .grid-2{ display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+  @media (max-width: 760px){ .grid-2{ grid-template-columns:1fr; } }
+
+  .crop-chips{ display:flex; flex-wrap:wrap; gap:8px; }
+  .crop-chip{
+    font-family:'IBM Plex Mono',monospace; font-size:11.5px; padding:7px 12px; text-transform:capitalize;
+    background: var(--paper); border:1px solid var(--line); border-radius: var(--radius);
+  }
+
+  .empty-state{ text-align:center; color: var(--ink-soft); padding: 30px 10px; font-size:13px; }
+  .empty-state .h{ font-family:'Fraunces',serif; color: var(--soil); font-size:16px; margin-bottom:4px; }
+
+  .loading-row{ display:flex; align-items:center; gap:8px; color: var(--ink-soft); font-size:12.5px; padding: 14px 0; }
+  .spinner{
+    width:13px; height:13px; border-radius:50%; border:2px solid var(--line);
+    border-top-color: var(--moss); animation: spin .7s linear infinite;
+  }
+  @keyframes spin{ to{ transform: rotate(360deg); } }
+
+  .metric-strip{ display:flex; gap:14px; flex-wrap:wrap; margin-bottom: 18px; }
+  .metric-card{
+    background: var(--paper); border:1px solid var(--line); border-radius: var(--radius);
+    padding: 12px 16px; min-width: 130px; flex:1;
+  }
+  .metric-card .k{ font-family:'IBM Plex Mono',monospace; font-size:9.5px; text-transform:uppercase; letter-spacing:0.06em; color:var(--ink-soft); }
+  .metric-card .v{ font-family:'Fraunces',serif; font-size:22px; color: var(--soil-deep); font-weight:600; margin-top:2px; text-transform:capitalize; }
+
+  ::selection{ background: var(--gold-soft); }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- ===================== SIDEBAR ===================== -->
+  <aside class="sidebar">
+    <div class="brand">
+      <svg class="brand-mark" viewBox="0 0 30 30" fill="none">
+        <path d="M15 27C15 27 6 21.5 6 13.5C6 8 10 4 15 4C20 4 24 8 24 13.5C24 21.5 15 27 15 27Z" stroke="#e9c98a" stroke-width="1.4"/>
+        <path d="M15 27V11" stroke="#6f9a70" stroke-width="1.4"/>
+        <path d="M15 15C15 15 11 14 10 10" stroke="#6f9a70" stroke-width="1.2"/>
+        <path d="M15 19C15 19 19.5 17.5 20.5 13" stroke="#6f9a70" stroke-width="1.2"/>
+      </svg>
+      <div class="brand-name">Field Ledger</div>
+    </div>
+    <div class="brand-sub">Crop Recommendation Console</div>
+
+    <nav>
+      <button class="nav-btn active" data-tab="predict"><span class="n">01</span> Predict</button>
+      <button class="nav-btn" data-tab="topn"><span class="n">02</span> Rank Top‑N</button>
+      <button class="nav-btn" data-tab="crops"><span class="n">03</span> Crop Directory</button>
+      <button class="nav-btn" data-tab="history"><span class="n">04</span> Prediction Log</button>
+      <button class="nav-btn" data-tab="performance"><span class="n">05</span> Model Bench</button>
+      <button class="nav-btn" data-tab="importance"><span class="n">06</span> Feature Weight</button>
+      <button class="nav-btn" data-tab="current"><span class="n">07</span> Active Model</button>
+    </nav>
+
+    <div class="sidebar-foot">
+      <div class="conn-row">
+        <span class="dot" id="connDot"></span>
+        <span class="conn-label" id="connLabel">CHECKING…</span>
+      </div>
+      <input class="api-input" id="apiBaseInput" value="http://localhost:8000" spellcheck="false">
+      <button class="btn-ghost" id="reconnectBtn">Reconnect</button>
+    </div>
+  </aside>
+
+  <!-- ===================== MAIN ===================== -->
+  <main>
+
+    <!-- ---------- PREDICT ---------- -->
+    <section class="tab-section active" id="tab-predict">
+      <div class="page-head">
+        <span class="eyebrow">Soil &amp; climate reading</span>
+        <h1>Recommend a crop</h1>
+        <p>Enter a soil sample and the local climate readings. The active model returns the single best‑fit crop, a confidence reading, and the runner‑up candidates.</p>
+      </div>
+
+      <div class="ticket">
+        <div class="panel">
+          <div class="panel-head"><h3>Sample Entry</h3><span class="tag">7 fields</span></div>
+          <div class="panel-body">
+            <div class="preset-row" id="presetRow"></div>
+            <form id="predictForm">
+              <div class="field-grid">
+                <div class="field"><label>Nitrogen (N) <span class="unit">kg/ha</span></label><input type="number" step="0.1" min="0" max="300" name="N" value="90" required></div>
+                <div class="field"><label>Phosphorus (P) <span class="unit">kg/ha</span></label><input type="number" step="0.1" min="0" max="300" name="P" value="42" required></div>
+                <div class="field"><label>Potassium (K) <span class="unit">kg/ha</span></label><input type="number" step="0.1" min="0" max="300" name="K" value="43" required></div>
+                <div class="field"><label>Temperature <span class="unit">°C</span></label><input type="number" step="0.1" min="-10" max="60" name="temperature" value="25.5" required></div>
+                <div class="field"><label>Humidity <span class="unit">%</span></label><input type="number" step="0.1" min="0" max="100" name="humidity" value="80" required></div>
+                <div class="field"><label>Soil pH <span class="unit">0–14</span></label><input type="number" step="0.1" min="0" max="14" name="ph" value="6.5" required></div>
+                <div class="field" style="grid-column:1/-1;"><label>Rainfall <span class="unit">mm</span></label><input type="number" step="0.1" min="0" max="3000" name="rainfall" value="200" required></div>
+              </div>
+              <div class="error-box" id="predictError"></div>
+              <div class="row-btns">
+                <button type="submit" class="btn btn-primary" id="predictBtn">Predict crop</button>
+                <button type="button" class="btn btn-secondary" id="predictReset">Reset sample</button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <div class="stub" id="predictStub">
+          <div class="stub-empty">
+            <svg width="34" height="34" viewBox="0 0 30 30" fill="none"><path d="M15 27C15 27 6 21.5 6 13.5C6 8 10 4 15 4C20 4 24 8 24 13.5C24 21.5 15 27 15 27Z" stroke="#9aa389" stroke-width="1.3"/></svg>
+            <div class="h">No reading yet</div>
+            <div class="s">Submit a soil sample to generate a field report with the recommended crop.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------- TOP N ---------- -->
+    <section class="tab-section" id="tab-topn">
+      <div class="page-head">
+        <span class="eyebrow">Ranked candidates</span>
+        <h1>Rank top‑N crops</h1>
+        <p>Same soil sample, ranked further down the list — useful for comparing close alternatives before committing to a planting.</p>
+      </div>
+      <div class="ticket">
+        <div class="panel">
+          <div class="panel-head"><h3>Sample Entry</h3><span class="tag">shared inputs</span></div>
+          <div class="panel-body">
+            <form id="topnForm">
+              <div class="field-grid">
+                <div class="field"><label>Nitrogen (N) <span class="unit">kg/ha</span></label><input type="number" step="0.1" min="0" max="300" name="N" value="90" required></div>
+                <div class="field"><label>Phosphorus (P) <span class="unit">kg/ha</span></label><input type="number" step="0.1" min="0" max="300" name="P" value="42" required></div>
+                <div class="field"><label>Potassium (K) <span class="unit">kg/ha</span></label><input type="number" step="0.1" min="0" max="300" name="K" value="43" required></div>
+                <div class="field"><label>Temperature <span class="unit">°C</span></label><input type="number" step="0.1" min="-10" max="60" name="temperature" value="25.5" required></div>
+                <div class="field"><label>Humidity <span class="unit">%</span></label><input type="number" step="0.1" min="0" max="100" name="humidity" value="80" required></div>
+                <div class="field"><label>Soil pH <span class="unit">0–14</span></label><input type="number" step="0.1" min="0" max="14" name="ph" value="6.5" required></div>
+                <div class="field" style="grid-column:1/-1;"><label>Rainfall <span class="unit">mm</span></label><input type="number" step="0.1" min="0" max="3000" name="rainfall" value="200" required></div>
+              </div>
+              <div class="field" style="margin-top:12px;">
+                <label>Show top <span class="unit" id="topnVal">5</span> candidates</label>
+                <input type="range" name="top_n" min="1" max="10" value="5" id="topnRange">
+              </div>
+              <div class="error-box" id="topnError"></div>
+              <div class="row-btns">
+                <button type="submit" class="btn btn-primary" id="topnBtn">Rank candidates</button>
+              </div>
+            </form>
+          </div>
+        </div>
+        <div class="stub" id="topnStub">
+          <div class="stub-empty">
+            <svg width="34" height="34" viewBox="0 0 30 30" fill="none"><path d="M6 24H24M9 24V14M15 24V8M21 24V17" stroke="#9aa389" stroke-width="1.5" stroke-linecap="round"/></svg>
+            <div class="h">No ranking yet</div>
+            <div class="s">Submit a sample to see the ranked candidate list.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------- CROPS ---------- -->
+    <section class="tab-section" id="tab-crops">
+      <div class="page-head">
+        <span class="eyebrow">Reference</span>
+        <h1>Crop directory</h1>
+        <p>Every crop label the active model was trained to recognise.</p>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h3>Known crops</h3><span class="tag" id="cropCount">—</span></div>
+        <div class="panel-body" id="cropsBody">
+          <div class="loading-row"><span class="spinner"></span> loading crop list…</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------- HISTORY ---------- -->
+    <section class="tab-section" id="tab-history">
+      <div class="page-head">
+        <span class="eyebrow">Log book</span>
+        <h1>Prediction log</h1>
+        <p>Recent predictions served by the API, if history logging is enabled on the backend.</p>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h3>Recent entries</h3><button class="btn-ghost" style="width:auto;padding:5px 10px;" id="refreshHistory">Refresh</button></div>
+        <div class="panel-body" id="historyBody">
+          <div class="loading-row"><span class="spinner"></span> loading history…</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------- PERFORMANCE ---------- -->
+    <section class="tab-section" id="tab-performance">
+      <div class="page-head">
+        <span class="eyebrow">Model bench</span>
+        <h1>Model performance</h1>
+        <p>Accuracy, precision, recall and F1 across all six models compared during training. The selected (best) model is highlighted.</p>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h3>Comparison</h3><span class="tag" id="perfBestTag">—</span></div>
+        <div class="panel-body" id="perfBody">
+          <div class="loading-row"><span class="spinner"></span> loading model comparison…</div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h3>Macro F1 by model</h3></div>
+        <div class="panel-body"><canvas id="perfChart" height="90"></canvas></div>
+      </div>
+    </section>
+
+    <!-- ---------- IMPORTANCE ---------- -->
+    <section class="tab-section" id="tab-importance">
+      <div class="page-head">
+        <span class="eyebrow">Under the hood</span>
+        <h1>Feature importance</h1>
+        <p>Which soil and climate readings the active model leans on most heavily when making a call.</p>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h3>Relative weight</h3><span class="tag" id="fiModelTag">—</span></div>
+        <div class="panel-body" id="fiBody">
+          <div class="loading-row"><span class="spinner"></span> loading feature importance…</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------- CURRENT MODEL ---------- -->
+    <section class="tab-section" id="tab-current">
+      <div class="page-head">
+        <span class="eyebrow">Status</span>
+        <h1>Active model</h1>
+        <p>Metadata for the model currently loaded and serving predictions.</p>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h3>Model card</h3></div>
+        <div class="panel-body" id="currentBody">
+          <div class="loading-row"><span class="spinner"></span> loading model info…</div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  let apiBase = document.getElementById('apiBaseInput').value.replace(/\/$/,'');
+  let perfChartInstance = null;
+
+  const PRESETS = {
+    "Rice paddy": {N:90,P:42,K:43,temperature:25.5,humidity:82,ph:6.4,rainfall:220},
+    "Dryland lentil": {N:20,P:60,K:20,temperature:18,humidity:45,ph:7.2,rainfall:55},
+    "Coastal coconut": {N:22,P:14,K:34,temperature:28,humidity:90,ph:5.9,rainfall:190},
+    "Arid mothbean": {N:15,P:35,K:20,temperature:33,humidity:40,ph:6.8,rainfall:38},
+  };
+
+  const CROP_EMOJI = {
+    rice:"🌾", maize:"🌽", chickpea:"🫘", kidneybeans:"🫘", pigeonpeas:"🫘", mothbeans:"🫘",
+    mungbean:"🫘", blackgram:"🫘", lentil:"🫘", pomegranate:"🍎", banana:"🍌", mango:"🥭",
+    grapes:"🍇", watermelon:"🍉", muskmelon:"🍈", apple:"🍎", orange:"🍊", papaya:"🍈",
+    coconut:"🥥", cotton:"🧵", jute:"🧵", coffee:"☕"
+  };
+  function emojiFor(name){ return CROP_EMOJI[(name||"").toLowerCase()] || "🌱"; }
+
+  // ---------------- Tabs ----------------
+  document.querySelectorAll('.nav-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+      document.querySelectorAll('.tab-section').forEach(s=>s.classList.remove('active'));
+      btn.classList.add('active');
+      const id = 'tab-'+btn.dataset.tab;
+      document.getElementById(id).classList.add('active');
+      if(btn.dataset.tab==='crops') loadCrops();
+      if(btn.dataset.tab==='history') loadHistory();
+      if(btn.dataset.tab==='performance') loadPerformance();
+      if(btn.dataset.tab==='importance') loadImportance();
+      if(btn.dataset.tab==='current') loadCurrent();
+    });
+  });
+
+  // ---------------- API helper ----------------
+  async function api(path, opts){
+    opts = opts || {};
+    const res = await fetch(apiBase + path, Object.assign({
+      headers: {'Content-Type':'application/json'}
+    }, opts));
+    let body = null;
+    try{ body = await res.json(); } catch(e){ /* no body */ }
+    if(!res.ok){
+      const msg = (body && (body.error || body.message)) || ('HTTP ' + res.status);
+      const err = new Error(typeof msg === 'string' ? msg : JSON.stringify(msg));
+      err.status = res.status;
+      throw err;
+    }
+    return body;
+  }
+
+  function fmtPct(x){ return (x*100).toFixed(1) + '%'; }
+  function esc(s){ return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+  // ---------------- Connection ----------------
+  async function checkHealth(){
+    const dot = document.getElementById('connDot');
+    const label = document.getElementById('connLabel');
+    dot.className = 'dot';
+    label.textContent = 'CHECKING…';
+    try{
+      const data = await api('/api/health');
+      dot.classList.add('ok');
+      label.textContent = data.model_loaded ? 'CONNECTED · MODEL READY' : 'CONNECTED · NO MODEL';
+    }catch(e){
+      dot.classList.add('bad');
+      label.textContent = 'OFFLINE';
+    }
+  }
+  document.getElementById('reconnectBtn').addEventListener('click', ()=>{
+    apiBase = document.getElementById('apiBaseInput').value.replace(/\/$/,'');
+    checkHealth();
+  });
+  checkHealth();
+
+  // ---------------- Presets ----------------
+  const presetRow = document.getElementById('presetRow');
+  Object.keys(PRESETS).forEach(name=>{
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'chip';
+    chip.textContent = name;
+    chip.addEventListener('click', ()=>{
+      const p = PRESETS[name];
+      const form = document.getElementById('predictForm');
+      Object.keys(p).forEach(k=>{ if(form[k]) form[k].value = p[k]; });
+    });
+    presetRow.appendChild(chip);
+  });
+
+  function readForm(form){
+    const fd = new FormData(form);
+    const out = {};
+    ['N','P','K','temperature','humidity','ph','rainfall'].forEach(k=>{
+      out[k] = parseFloat(fd.get(k));
+    });
+    return out;
+  }
+
+  // ---------------- Predict ----------------
+  const predictForm = document.getElementById('predictForm');
+  const predictStub = document.getElementById('predictStub');
+  const predictError = document.getElementById('predictError');
+
+  predictForm.addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    predictError.classList.remove('show');
+    const btn = document.getElementById('predictBtn');
+    btn.disabled = true; btn.textContent = 'Predicting…';
+    predictStub.innerHTML = '<div class="loading-row"><span class="spinner"></span> reading soil sample…</div>';
+    try{
+      const payload = readForm(predictForm);
+      const res = await api('/api/predict', {method:'POST', body: JSON.stringify(payload)});
+      renderPrediction(res.data);
+    }catch(err){
+      predictError.textContent = err.message;
+      predictError.classList.add('show');
+      predictStub.innerHTML = '<div class="stub-empty"><div class="h">Prediction failed</div><div class="s">'+esc(err.message)+'</div></div>';
+    }finally{
+      btn.disabled = false; btn.textContent = 'Predict crop';
+    }
+  });
+  document.getElementById('predictReset').addEventListener('click', ()=>predictForm.reset());
+
+  function renderPrediction(data){
+    const pred = data.prediction || {};
+    const pct = Math.round((pred.confidence||0)*100);
+    const dialBg = `conic-gradient(var(--moss) ${pct}%, var(--paper-3) ${pct}% 100%)`;
+
+    let ranksHtml = '';
+    (data.top_recommendations||[]).forEach((r,i)=>{
+      ranksHtml += `<div class="rank-item">
+        <span class="rk">${i+1}</span>
+        <span class="nm">${emojiFor(r.crop)} ${esc(r.crop)}</span>
+        <span class="rank-bar-track"><span class="rank-bar-fill" style="width:${(r.probability*100).toFixed(1)}%"></span></span>
+        <span class="pv">${fmtPct(r.probability)}</span>
+      </div>`;
+    });
+
+    let specHtml = '';
+    const supp = data.supplementary_crop_info;
+    if(supp && typeof supp === 'object'){
+      Object.entries(supp).forEach(([k,v])=>{
+        specHtml += `<tr><td>${esc(k.replace(/_/g,' '))}</td><td>${esc(v)}</td></tr>`;
+      });
+    }
+
+    predictStub.innerHTML = `
+      <div class="dial-wrap">
+        <div class="dial" style="background:${dialBg}">
+          <div class="dial-inner"><span class="pct">${pct}%</span><span class="lbl">confidence</span></div>
+        </div>
+        <div>
+          <div class="crop-name">${emojiFor(pred.crop)} ${esc(pred.crop||'—')}</div>
+          <div class="crop-model">model: ${esc(data.model||'unknown')}</div>
+        </div>
+      </div>
+      ${data.explanation ? `<div class="explanation">${esc(data.explanation)}</div>` : ''}
+      ${ranksHtml ? `<div class="mono" style="font-size:10px;text-transform:uppercase;letter-spacing:0.06em;color:var(--ink-soft);margin-top:14px;">Runner‑up candidates</div><div class="rank-list">${ranksHtml}</div>` : ''}
+      ${specHtml ? `<table class="spec-table">${specHtml}</table>` : ''}
+    `;
+  }
+
+  // ---------------- Top-N ----------------
+  const topnForm = document.getElementById('topnForm');
+  const topnStub = document.getElementById('topnStub');
+  const topnError = document.getElementById('topnError');
+  const topnRange = document.getElementById('topnRange');
+  const topnVal = document.getElementById('topnVal');
+  topnRange.addEventListener('input', ()=> topnVal.textContent = topnRange.value);
+
+  topnForm.addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    topnError.classList.remove('show');
+    const btn = document.getElementById('topnBtn');
+    btn.disabled = true; btn.textContent = 'Ranking…';
+    topnStub.innerHTML = '<div class="loading-row"><span class="spinner"></span> ranking candidates…</div>';
+    try{
+      const payload = readForm(topnForm);
+      payload.top_n = parseInt(topnRange.value, 10);
+      const res = await api('/api/predict/top', {method:'POST', body: JSON.stringify(payload)});
+      renderTopN(res.data);
+    }catch(err){
+      topnError.textContent = err.message;
+      topnError.classList.add('show');
+      topnStub.innerHTML = '<div class="stub-empty"><div class="h">Ranking failed</div><div class="s">'+esc(err.message)+'</div></div>';
+    }finally{
+      btn.disabled = false; btn.textContent = 'Rank candidates';
+    }
+  });
+
+  function renderTopN(data){
+    const recs = data.recommendations || [];
+    let html = `<div class="mono" style="font-size:10px;text-transform:uppercase;letter-spacing:0.06em;color:var(--ink-soft);margin-bottom:10px;">model: ${esc(data.model||'unknown')}</div><div class="rank-list">`;
+    recs.forEach((r,i)=>{
+      html += `<div class="rank-item">
+        <span class="rk">${i+1}</span>
+        <span class="nm">${emojiFor(r.crop)} ${esc(r.crop)}</span>
+        <span class="rank-bar-track"><span class="rank-bar-fill" style="width:${(r.probability*100).toFixed(1)}%"></span></span>
+        <span class="pv">${fmtPct(r.probability)}</span>
+      </div>`;
+    });
+    html += '</div>';
+    topnStub.innerHTML = html;
+  }
+
+  // ---------------- Crops ----------------
+  let cropsLoaded = false;
+  async function loadCrops(){
+    if(cropsLoaded) return;
+    const body = document.getElementById('cropsBody');
+    try{
+      const res = await api('/api/crops');
+      const crops = res.data.crops || [];
+      document.getElementById('cropCount').textContent = crops.length + ' crops';
+      body.innerHTML = `<div class="crop-chips">${crops.map(c=>`<span class="crop-chip">${emojiFor(c)} ${esc(c)}</span>`).join('')}</div>`;
+      cropsLoaded = true;
+    }catch(err){
+      body.innerHTML = `<div class="empty-state"><div class="h">Couldn't load crops</div>${esc(err.message)}</div>`;
+    }
+  }
+
+  // ---------------- History ----------------
+  async function loadHistory(){
+    const body = document.getElementById('historyBody');
+    body.innerHTML = '<div class="loading-row"><span class="spinner"></span> loading history…</div>';
+    try{
+      const res = await api('/api/predictions/history?limit=50');
+      if(res.data.enabled === false){
+        body.innerHTML = `<div class="empty-state"><div class="h">History logging disabled</div>Set ENABLE_DB=true on the backend to start logging predictions.</div>`;
+        return;
+      }
+      const rows = res.data.history || [];
+      if(!rows.length){
+        body.innerHTML = `<div class="empty-state"><div class="h">No predictions yet</div>Run a prediction from the Predict tab to see it logged here.</div>`;
+        return;
+      }
+      let html = '<table class="data"><thead><tr><th>Time</th><th>Crop</th><th>Confidence</th><th>Model</th><th>N</th><th>P</th><th>K</th><th>Temp</th><th>Humidity</th><th>pH</th><th>Rain</th></tr></thead><tbody>';
+      rows.forEach(r=>{
+        const crop = r.predicted_crop || r.crop || '—';
+        html += `<tr>
+          <td class="mono">${esc(r.timestamp || r.created_at || '—')}</td>
+          <td>${emojiFor(crop)} ${esc(crop)}</td>
+          <td class="mono">${r.confidence!=null ? fmtPct(r.confidence) : '—'}</td>
+          <td class="mono">${esc(r.model_name || r.model || '—')}</td>
+          <td class="mono">${esc(r.n ?? r.N ?? '—')}</td>
+          <td class="mono">${esc(r.p ?? r.P ?? '—')}</td>
+          <td class="mono">${esc(r.k ?? r.K ?? '—')}</td>
+          <td class="mono">${esc(r.temperature ?? '—')}</td>
+          <td class="mono">${esc(r.humidity ?? '—')}</td>
+          <td class="mono">${esc(r.ph ?? '—')}</td>
+          <td class="mono">${esc(r.rainfall ?? '—')}</td>
+        </tr>`;
+      });
+      html += '</tbody></table>';
+      body.innerHTML = html;
+    }catch(err){
+      body.innerHTML = `<div class="empty-state"><div class="h">Couldn't load history</div>${esc(err.message)}</div>`;
+    }
+  }
+  document.getElementById('refreshHistory').addEventListener('click', loadHistory);
+
+  // ---------------- Performance ----------------
+  async function loadPerformance(){
+    const body = document.getElementById('perfBody');
+    body.innerHTML = '<div class="loading-row"><span class="spinner"></span> loading model comparison…</div>';
+    try{
+      const res = await api('/api/models/performance');
+      const models = res.data.models || [];
+      const best = res.data.best_model;
+      document.getElementById('perfBestTag').textContent = best ? ('best · ' + best) : '—';
+
+      let html = '<table class="data"><thead><tr><th>Model</th><th>Accuracy</th><th>Precision</th><th>Recall</th><th>F1</th><th>Macro F1</th><th>CV Macro F1</th></tr></thead><tbody>';
+      models.forEach(m=>{
+        const isBest = m.name === best;
+        html += `<tr class="${isBest?'best-row':''}"><td>${isBest?'<span class="pill">best</span> ':''}${esc(m.name)}</td>
+          <td class="mono">${fmtPct(m.accuracy)}</td>
+          <td class="mono">${fmtPct(m.precision)}</td>
+          <td class="mono">${fmtPct(m.recall)}</td>
+          <td class="mono">${fmtPct(m.f1_score)}</td>
+          <td class="mono">${fmtPct(m.macro_f1)}</td>
+          <td class="mono">${m.cross_validation_f1_macro!=null ? fmtPct(m.cross_validation_f1_macro) : '—'}</td>
+        </tr>`;
+      });
+      html += '</tbody></table>';
+      body.innerHTML = html;
+
+      const ctx = document.getElementById('perfChart').getContext('2d');
+      if(perfChartInstance) perfChartInstance.destroy();
+      perfChartInstance = new Chart(ctx, {
+        type:'bar',
+        data:{
+          labels: models.map(m=>m.name),
+          datasets:[{
+            label:'Macro F1',
+            data: models.map(m=>m.macro_f1),
+            backgroundColor: models.map(m=> m.name===best ? '#c1922f' : '#7fa981'),
+            borderRadius: 3,
+          }]
+        },
+        options:{
+          plugins:{legend:{display:false}},
+          scales:{ y:{ beginAtZero:true, max:1, ticks:{ callback:v=>Math.round(v*100)+'%' } } }
+        }
+      });
+    }catch(err){
+      body.innerHTML = `<div class="empty-state"><div class="h">Couldn't load model comparison</div>${esc(err.message)}</div>`;
+    }
+  }
+
+  // ---------------- Feature importance ----------------
+  async function loadImportance(){
+    const body = document.getElementById('fiBody');
+    body.innerHTML = '<div class="loading-row"><span class="spinner"></span> loading feature importance…</div>';
+    try{
+      const res = await api('/api/models/feature-importance');
+      document.getElementById('fiModelTag').textContent = res.data.model || '—';
+      let features = res.data.features || [];
+      // normalise shape: could be list of {feature, importance} or dict
+      if(!Array.isArray(features)){
+        features = Object.entries(features).map(([feature, importance])=>({feature, importance}));
+      }
+      features.sort((a,b)=> (b.importance||0) - (a.importance||0));
+      const max = Math.max(...features.map(f=>f.importance||0), 0.0001);
+      let html = '<div class="rank-list">';
+      features.forEach(f=>{
+        const name = f.feature || f.name || '—';
+        const val = f.importance != null ? f.importance : (f.value || 0);
+        html += `<div class="rank-item">
+          <span class="nm" style="width:120px;">${esc(name)}</span>
+          <span class="rank-bar-track"><span class="rank-bar-fill" style="width:${(val/max*100).toFixed(1)}%"></span></span>
+          <span class="pv">${val.toFixed(3)}</span>
+        </div>`;
+      });
+      html += '</div>';
+      body.innerHTML = html;
+    }catch(err){
+      body.innerHTML = `<div class="empty-state"><div class="h">Couldn't load feature importance</div>${esc(err.message)}</div>`;
+    }
+  }
+
+  // ---------------- Current model ----------------
+  async function loadCurrent(){
+    const body = document.getElementById('currentBody');
+    body.innerHTML = '<div class="loading-row"><span class="spinner"></span> loading model info…</div>';
+    try{
+      const res = await api('/api/models/current');
+      const d = res.data;
+      const metrics = [
+        ['Accuracy', d.accuracy], ['F1 score', d.f1_score], ['Macro F1', d.macro_f1],
+        ['CV macro F1', d.cross_validation_f1_macro]
+      ].filter(m=>m[1]!=null);
+
+      let strip = '<div class="metric-strip">';
+      metrics.forEach(([k,v])=> strip += `<div class="metric-card"><div class="k">${esc(k)}</div><div class="v">${fmtPct(v)}</div></div>`);
+      strip += '</div>';
+
+      const rows = [
+        ['Model name', d.model_name], ['Version', d.version], ['Trained at', d.trained_at],
+        ['Classes', d.num_classes], ['Dataset size', d.dataset_size],
+        ['Features', Array.isArray(d.features) ? d.features.join(', ') : d.features]
+      ].filter(r=>r[1]!=null);
+
+      let table = '<table class="spec-table">';
+      rows.forEach(([k,v])=> table += `<tr><td>${esc(k)}</td><td>${esc(v)}</td></tr>`);
+      table += '</table>';
+
+      body.innerHTML = strip + table;
+    }catch(err){
+      body.innerHTML = `<div class="empty-state"><div class="h">Couldn't load model info</div>${esc(err.message)}</div>`;
+    }
+  }
+
+})();
+</script>
+</body>
+</html>
